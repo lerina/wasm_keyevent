@@ -1,11 +1,6 @@
 use std::collections::HashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
-//use lazy_static::lazy_static;
-//use std::sync::Mutex;
-//lazy_static! {
-//    static ref MUTABLE_GLOBAL_VARIABLE: Mutex<String> = Mutex::new("_".to_string());
-//}
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -13,7 +8,7 @@ use web_sys::console;
 
 const GAME_WIDTH: f64 = 600.0;
 const GAME_HEIGHT: f64 = 600.0;
-const PLAYER_INITIAL_SPEED: f64 = 1.0;
+const PLAYER_INITIAL_SPEED: f64 = 5.5;
 
 
 #[wasm_bindgen]
@@ -32,7 +27,7 @@ pub struct Game {
     pub width: f64,
     pub height: f64,
     pub player: Player,
-    pub keyevent: Option<i32>,
+    pub keyevent: i32,
 }
 
 #[wasm_bindgen]
@@ -69,19 +64,17 @@ impl Player {
 impl Game {
     #[wasm_bindgen(constructor)]
     pub fn new(width: f64, height: f64, player: Player) -> Game {
-        Game { width, height, player, keyevent: None }
+        Game { width, height, player, keyevent: 6 }
     }
-    pub fn get_keyevent(&self) -> Option<i32> {
+    pub fn get_keyevent(&self) -> i32 {
         self.keyevent
     }
     pub fn set_keyevent(&mut self, keyevent: i32) {
-        self.keyevent = Some(keyevent);
+        self.keyevent = keyevent;
     }
     pub fn update(&mut self) {
-        let _ = match self.keyevent {
-            Some(x) => self.player.update(x),
-            _ => {},
-        };
+        console::log_1(&format!("Game: {}", self.keyevent).into());
+        self.player.update(self.keyevent);
     }
 }
 
@@ -104,9 +97,7 @@ pub fn main_js() -> Result<(), JsValue> {
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
         .unwrap();
-
-    set_common_style(&ctx);
-    //
+    
 
     let game = Rc::new( RefCell::new( Game::new(
                             GAME_WIDTH,
@@ -123,19 +114,23 @@ pub fn main_js() -> Result<(), JsValue> {
 
     wasm_bindgen_futures::spawn_local(async move {
         let game = game.clone();
-        prepare_input(&canvas, *game.borrow()); 
+        
+        // input
+        handle_input(&canvas, Rc::clone(&game)); 
 
         let interval_callback = Closure::wrap(Box::new({
             let game = game.clone();            
             move || {
-            // input
-            let user_action = game.borrow().get_keyevent(); 
-            // update:
-            game.borrow_mut().update();
-            // draw
-            ctx.clear_rect(0.0, 0.0, game.borrow().width, game.borrow().height); //ctx.clear_rect(0.0, 0.0, 600.0, 600.0);
-            game.borrow().player.draw(&ctx);
-            //console::log_1(&frame_name.into());
+                // update:
+                game.borrow_mut().update();
+                // draw
+
+                ctx.clear_rect(0.0, 0.0, game.borrow().width, game.borrow().height);
+                set_common_style(&ctx);            
+                ctx.set_fill_style(&"black".into());
+                ctx.fill_rect(0.0, 0.0, game.borrow().width, game.borrow().height);
+                
+                game.borrow().player.draw(&ctx);
             }
         }) as Box<dyn FnMut()>);
 
@@ -143,7 +138,7 @@ pub fn main_js() -> Result<(), JsValue> {
             .set_interval_with_callback_and_timeout_and_arguments_0(interval_callback
                                                                         .as_ref()
                                                                         .unchecked_ref(), 
-                                                                        500);
+                                                                        50);
 
         interval_callback.forget();
     }); //^-- spawn_local
@@ -151,20 +146,24 @@ pub fn main_js() -> Result<(), JsValue> {
     Ok(())
 } //^--fn main_js
 
-fn prepare_input(canvas: &web_sys::HtmlCanvasElement, game: Game) {
-    let mut game = game.clone();
+fn handle_input(canvas: &web_sys::HtmlCanvasElement, game: Rc<RefCell<Game>>) {
+    let game_up = game.clone();
+    let game_down = game.clone();
     let gamekeys: HashMap<String, i32> = HashMap::from([ ("ArrowUp".to_string(), 0), ("ArrowRight".to_string(),1) ,("ArrowDown".to_string(), 2),("ArrowLeft".to_string(), 3),(" ".to_string(), 4)]);  
  
     let onkeydown = Closure::wrap(Box::new(move |keycode: web_sys::KeyboardEvent| {
         console::log_1(&keycode.key().into());
-        game.set_keyevent(
-            *gamekeys.get(&keycode.key()).unwrap_or(&5)); //5 is do nothing
-        //game.get_keyevent().unwrap()        
-        console::log_1(&format!("key {}", game.get_keyevent().unwrap()).into());
+        let k = *gamekeys.get(&keycode.key()).unwrap_or(&5);
+        game_down.borrow_mut().set_keyevent(k); //5 is do nothing
+ 
+        console::log_1(&format!("key {}", game_down.borrow().get_keyevent()).into());
     }) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
 
+
     let onkeyup =
-        Closure::wrap(Box::new(move |keycode: web_sys::KeyboardEvent| {}) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
+        Closure::wrap(Box::new(move |_keycode: web_sys::KeyboardEvent| {
+        game_up.borrow_mut().set_keyevent(5); //5 is do nothing
+    }) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
 
     canvas.set_onkeydown(Some(onkeydown.as_ref().unchecked_ref()));
 
