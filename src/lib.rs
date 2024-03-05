@@ -56,8 +56,8 @@ impl Player {
     pub fn update(&mut self, keyevent: i32) {
         let _ = match keyevent {
             0 => self.y = (self.y - self.speed).max(self.height), //"ArrowUp"
-            1 => self.x = (self.x + self.speed).min(GAME_WIDTH), //"ArrowRight"
-            2 => self.y = (self.y + self.speed).min(GAME_HEIGHT - 100.0), //"ArrowDown"
+            1 => self.x = (self.x + self.speed).min(GAME_WIDTH - (self.width * 2.0)), //"ArrowRight"
+            2 => self.y = (self.y + self.speed).min(GAME_HEIGHT - (self.height * 2.0)), //"ArrowDown"
             3 => self.x = (self.x - self.speed).max(self.width), //"ArrowLeft"
             4 => console::log_1(&"spacebar to shoot".into()), 
             _ => (), // do nothing 
