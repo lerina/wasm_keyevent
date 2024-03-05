@@ -44,9 +44,14 @@ impl Player {
     }
 
     pub fn draw(&self, ctx: &web_sys::CanvasRenderingContext2d) {
+//        ctx.fill_rect(self.x, self.y, self.width, self.height);
+//        ctx.stroke();
+//        ctx.fill();
+
+        ctx.set_stroke_style(&"yellow".into()); // &JsValue::from_str("yellow")
+        ctx.set_fill_style(&"black".into()); // into know to use JsValue::from_str
+        ctx.stroke_rect(self.x, self.y, self.width, self.height);
         ctx.fill_rect(self.x, self.y, self.width, self.height);
-        ctx.stroke();
-        ctx.fill();
     }
     pub fn update(&mut self, keyevent: i32) {
         let _ = match keyevent {
@@ -54,7 +59,7 @@ impl Player {
             1 => self.x = (self.x + self.speed).min(GAME_WIDTH), //"ArrowRight"
             2 => self.y = (self.y + self.speed).min(GAME_HEIGHT - 100.0), //"ArrowDown"
             3 => self.x = (self.x - self.speed).max(self.width), //"ArrowLeft"
-            4 => todo!(), //spacebar to shoot //" " 
+            4 => console::log_1(&"spacebar to shoot".into()), 
             _ => (), // do nothing 
         };
     }
@@ -89,7 +94,8 @@ pub fn main_js() -> Result<(), JsValue> {
         .unwrap()
         .dyn_into::<web_sys::HtmlCanvasElement>()
         .unwrap();
-    canvas.set_tab_index(0);
+    let _ = canvas.focus();
+    // canvas.set_tab_index(0); not working and looks to be a hack: 
 
     let ctx = canvas
         .get_context("2d")
@@ -97,7 +103,9 @@ pub fn main_js() -> Result<(), JsValue> {
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
         .unwrap();
-    
+
+    let _ = canvas.focus();
+    set_common_style(&ctx);
 
     let game = Rc::new( RefCell::new( Game::new(
                             GAME_WIDTH,
@@ -124,12 +132,7 @@ pub fn main_js() -> Result<(), JsValue> {
                 // update:
                 game.borrow_mut().update();
                 // draw
-
-                ctx.clear_rect(0.0, 0.0, game.borrow().width, game.borrow().height);
-                set_common_style(&ctx);            
-                ctx.set_fill_style(&"black".into());
-                ctx.fill_rect(0.0, 0.0, game.borrow().width, game.borrow().height);
-                
+                clear_screen(&ctx, &canvas);
                 game.borrow().player.draw(&ctx);
             }
         }) as Box<dyn FnMut()>);
@@ -173,6 +176,13 @@ fn handle_input(canvas: &web_sys::HtmlCanvasElement, game: Rc<RefCell<Game>>) {
     onkeyup.forget();
 }
 
+fn clear_screen(ctx: &web_sys::CanvasRenderingContext2d, canvas: &web_sys::HtmlCanvasElement) {
+    //NOPE: ctx.fill_style("black");
+    ctx.set_fill_style(&"rgb(0,0,0)".into());
+    ctx.clear_rect(0.0, 0.0, canvas.width().into(), canvas.height().into());
+    ctx.fill_rect(0.0, 0.0, canvas.width().into(), canvas.height().into());
+
+}
 fn set_common_style(ctx: &web_sys::CanvasRenderingContext2d) {
     ctx.set_shadow_color("#d53");
     ctx.set_shadow_blur(20.0);
